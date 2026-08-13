@@ -4072,3 +4072,30 @@ func TestCustomDefaultShellCompDirective(t *testing.T) {
 		})
 	}
 }
+
+func TestCompletionDoesNotMutateOsArgs(t *testing.T) {
+	origArgs := os.Args
+	defer func() { os.Args = origArgs }()
+
+	os.Args = []string{"root", ShellCompNoDescRequestCmd, "x"}
+	rootCmd := &Command{
+		Use:              "root",
+		TraverseChildren: true,
+		ValidArgsFunction: func(cmd *Command, args []string, toComplete string) ([]string, ShellCompDirective) {
+			return []string{"mycompletion"}, ShellCompDirectiveDefault
+		},
+		Run: emptyRun,
+	}
+
+	buf := new(bytes.Buffer)
+	rootCmd.SetOut(buf)
+	rootCmd.SetErr(buf)
+
+	if _, err := rootCmd.ExecuteC(); err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	if len(os.Args) != 3 || os.Args[0] != "root" || os.Args[1] != ShellCompNoDescRequestCmd || os.Args[2] != "x" {
+		t.Fatalf("os.Args was mutated: %#v", os.Args)
+	}
+}
